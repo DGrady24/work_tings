@@ -1,0 +1,6 @@
+#!/bin/bash
+#Copy the auto_conf file to target host and ssh into host.
+##Created by Rob Collins robert.collins@ltnglobal.com July 2020
+
+scp -P 3999 ./auto_conf $(whoami)@$1:/home/$(whoami) &&
+ssh $1 -p 3999
