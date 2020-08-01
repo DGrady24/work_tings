@@ -71,12 +71,12 @@ function recv-test {
 
 
 #Function invocation
-ingest
-ingest-test
-recv-test
-cd $path
-ls
+typeset -f ingest | ssh -p 3999 $host "$(cat); ingest"
+typeset -f ingest-test | ssh -p 3999 $host "$(cat); ingest-test"
+typeset -f recv-test | ssh -p 3999 $host "$(cat); recv-test"
+#cd $path
+#ls
 
 #Configure Schedule Agent
-cd ~ltn/ous/schedule_agent
-sed -i 's/ENDPOINT_NAME = TODO/ENDPOINT_NAME = $(hostname)/'
+#cd ~ltn/ous/schedule_agent
+#sed -i 's/ENDPOINT_NAME = TODO/ENDPOINT_NAME = $(hostname)/'
