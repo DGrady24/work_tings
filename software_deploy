@@ -12,10 +12,10 @@ read response
 
 #Software Deployment
 case $response in
-	[yY])	#<commented for testing>echo  /usr/local/sbin/deploy_software.sh -f -s -a -c -e -G $host &&;;
+	[yY])	/usr/local/sbin/deploy_software.sh -f -s -a -c -e -G $host &&
 		echo -e "Software successfully deployed:\n Flow Client\n Spread\n Schedule Agent\n Equipment Controller\n LTN Encoder\n LTED Decoder";;
 		
-	[nN])	#<commented for testing>echo  /usr/local/sbin/deploy_software.sh -f -a -c -e -G $host &&;;
+	[nN])	/usr/local/sbin/deploy_software.sh -f -a -c -e -G $host &&
 		echo -e "Software deployed:\n Flow Client\n Schedule Agent\n Equipment Controller\n LTN Encoder\n LTED Decoder";;	
 esac
 
@@ -40,43 +40,84 @@ echo -n "Overlay: "
 read overlay
 echo -n "Flowclient ID: "
 read flc
-sc_path=~ltn/scripts_current
+path=~ltn/scripts_current
 mnumber=$((${overlay:0:2}-40))
+appliance=$(ssh -p 3999 $host hostname)
 
 #Function declarations
+#Writing conf-conf file
+
+cat <<EOF > conf_config
+#!/bin/bash
+
+#Create ingest.conf
 function ingest {
          cp $path/ingest.conf.example $path/ingest.conf
          file=$path/ingest.conf
          sed -i "s/RESTART_ON_BOOT=.*/RESTART_ON_BOOT=YES/; s/RECEIVE_PORT=.*/RECEIVE_PORT=$rp/;
                  s/MOON_PORT=.*/MOON_PORT=$overlay/; s/SEND_GROUP=.*/SEND_GROUP=$chan_num/; s/FLOWC_ID=.*/FLOWC_ID=$flc/;
-                 s/LOG_FILE=.*/LOG_FILE=ingest.log/" $file
+                 s/LOG_FILE=.*/LOG_FILE=ingest.log/" $path/ingest.conf
 }
 
 
-function ingest-test {
+#Create ingest-test.conf
+function ingest_test {
         cp $path/ingest.conf $path/ingest-test.conf
         file=$path/ingest-test.conf
         sed -i "s/RESTART_ON_BOOT=YES/RESTART_ON_BOOT=NO/; s/RECEIVE_PORT=.*/RECEIVE_PORT=4991/;
                 s/SEND_GROUP=.*/SEND_GROUP=$(echo $chan_num | sed s/.0/.99/)/; s/LOG_FILE=.*/LOG_FILE=ingest-test.log/;
-                s/$flc/$flc-bw/" $file
+                s/$flc/$flc-bw/" $path/ingest-test.conf
 }
 
 
-function recv-test {
+#Create recv-test.conf
+function recv_test {
         cp $path/recv.conf.example $path/recv-test.conf
         file=$path/recv-test.conf
         sed -i "s/MOON_PORT=.*/MOON_PORT=$overlay/; s/RECEIVE_GROUP=.*/RECEIVE_GROUP=$(echo $chan_num | sed "s/.0/.99/")/;
-                s/LOG_FILE=.*/LOG_FILE=recv-test.log/; s/BUF_TIME=.*/BUF_TIME=150/; s/FLOWC_ID=.*/FLOWC_ID=$(echo $flc | sed s/-i/-recv-bw/)/" $file
+                s/LOG_FILE=.*/LOG_FILE=recv-test.log/; s/BUF_TIME=.*/BUF_TIME=150/; s/FLOWC_ID=.*/FLOWC_ID=$(echo $flc | sed s/-i/-recv-bw/)/" $path/recv-test.conf
 }
 
 
-#Function invocation
-typeset -f ingest | ssh -p 3999 $host "$(cat); ingest"
-typeset -f ingest-test | ssh -p 3999 $host "$(cat); ingest-test"
-typeset -f recv-test | ssh -p 3999 $host "$(cat); recv-test"
-#cd $path
-#ls
+#Configure schedule agent
+function sa_config {
+	cd ~ltn/ous/schedule_agent && sed -i 's/ENDPOINT_NAME = TODO/ENDPOINT_NAME = $appliance/' ./scheduler.conf
+}
 
-#Configure Schedule Agent
-#cd ~ltn/ous/schedule_agent
-#sed -i 's/ENDPOINT_NAME = TODO/ENDPOINT_NAME = $(hostname)/'
+
+#Update endpoint, configure ltn_encoder and lted_decoder
+function ed_config {
+	cd ~ltn/ltn_encoder
+	sed -i 's/target address =.*/target address = 127.0.0.1:5001/' ltn_encoder0.conf &&
+	cd ../ltn_decoder/
+	sed -i 's/vlc receive address =.*/vlc receive address = 227.1.1.1/; s/vlc receive port =.*/vlc receive port = 4001/' ltn_decoder3.conf
+}
+
+
+#Remove added scripts
+function tidy_up {
+	rm ~/conf_config
+}
+
+#Function invocation
+ingest
+ingest_test
+recv_test
+sa_config
+ed_config
+tidy_up
+
+EOF
+
+#Make conf_config executable
+chmod 755 ./conf_config
+
+#Copy conf_config to appliance
+scp -P 3999 ./conf_config $(whoami)@$host:~
+
+#Update endpoint
+ssh -tp 3999 $host sudo -u ltn ~ltn/ltn_confs/update-endpoint-state execute
+
+#Execute conf_config on appliance
+ssh -p 3999 $host ~/conf_config
+
