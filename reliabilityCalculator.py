@@ -1,6 +1,6 @@
 #!/usr/bin/env python3.9
 
-#Version 1.0
+#Version 2.0
 #Written by Rob Collins
 
 import tkinter as tk
