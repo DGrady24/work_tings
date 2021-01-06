@@ -4,27 +4,12 @@
 ##Rob Collins rob.collins@ltnglobal.com July 2020
 
 #Info gathering
-echo -n "Enter hostname or ip address of appliance: "
-read host
-echo -n "Receive Port: "
-read rp
-echo -n "Channel Number: "
-read chan_num
-echo -n "Overlay: "
-read overlay
-echo -n "Flowclient ID: "
-read flc
-echo -n "Will this appliance be part of a redundant pair? (y/N): " 
-read response
+host=$1
+rp=$2
+chan_num=$3
+overlay=$4
+flc=$5
 
-#Software Deployment
-case $response in
-	[yY])	/usr/local/sbin/deploy_software.sh -f -s -a -c -e -G $host &&
-		echo -e "Software successfully deployed:\n Flow Client\n Spread\n Schedule Agent\n Equipment Controller\n LTN Encoder\n LTED Decoder";;
-		
-	[nN])	/usr/local/sbin/deploy_software.sh -f -a -c -e -G $host &&
-		echo -e "Software deployed:\n Flow Client\n Schedule Agent\n Equipment Controller\n LTN Encoder\n LTED Decoder";;	
-esac
 
 #DNS and NTP Check
 ssh -p 3999 $host nslookup www.google.com 1> /dev/null &&
@@ -89,7 +74,7 @@ function sa_config {
 function ed_config {
 	cd ~ltn/ltn_encoder
 	sed -i 's/target address =.*/target address = 127.0.0.1:5001/' ltn_encoder0.conf &&
-	cd ../ltn_decoder/
+	cd ../lted_decoder/
 	sed -i 's/vlc receive address =.*/vlc receive address = 227.1.1.1/; s/vlc receive port =.*/vlc receive port = 4001/' ltn_decoder3.conf
 }
 
@@ -97,6 +82,7 @@ function ed_config {
 #Remove added scripts
 function tidy_up {
 	rm ~/conf_config
+	rm ~/scripts_current/*.conf.example
 }
 
 #Function invocation
