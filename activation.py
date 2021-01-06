@@ -78,12 +78,13 @@ def software_deploy():
 
 
 def run_activation():
-    return "~/work_tings/activate_appliance %s %s %s %s %s" % (host_name.get(), rp.get(),
+    return "/home/$USER/work_tings/activate_appliance %s %s %s %s %s" % (ip_addr.get(), rp.get(),
                                                                chan.get(), ovly.get(), fc.get())
 
 
 def connect():
     system("ssh -p 3993 col-control.livetimenet.net " + software_deploy())
+    system("ssh -ttp 3993 col-control.livetimenet.net " + run_activation())
 
 
 run = tk.Frame(relief=tk.RAISED, borderwidth=5)
